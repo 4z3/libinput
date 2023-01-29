@@ -327,7 +327,9 @@ tablet_update_tool(struct tablet_dispatch *tablet,
 		tablet_unset_status(tablet, TABLET_TOOL_OUT_OF_PROXIMITY);
 	}
 	else if (!tablet_has_status(tablet, TABLET_TOOL_OUT_OF_PROXIMITY)) {
-		tablet_set_status(tablet, TABLET_TOOL_LEAVING_PROXIMITY);
+		if (!tablet_has_status(tablet, TABLET_TOOL_IN_CONTACT)) {
+			tablet_set_status(tablet, TABLET_TOOL_LEAVING_PROXIMITY);
+		}
 	}
 }
 
@@ -1472,7 +1474,9 @@ tablet_update_proximity_state(struct tablet_dispatch *tablet,
 	/* Tool was in prox and is now outside of range. Set leaving
 	 * proximity, on the next event it will be OUT_OF_PROXIMITY and thus
 	 * caught by the above conditions */
-	tablet_set_status(tablet, TABLET_TOOL_LEAVING_PROXIMITY);
+	if (!tablet_has_status(tablet, TABLET_TOOL_IN_CONTACT)) {
+		tablet_set_status(tablet, TABLET_TOOL_LEAVING_PROXIMITY);
+	}
 }
 
 static struct phys_rect
@@ -1599,6 +1603,14 @@ tablet_send_tip(struct tablet_dispatch *tablet,
 		uint64_t time)
 {
 	if (tablet_has_status(tablet, TABLET_TOOL_ENTERING_CONTACT)) {
+		struct tablet_axes axes2 = *axes;
+		axes2.pressure = 0;
+		tablet_notify_axis(&device->base,
+					 time - 1,
+					 tool,
+					 LIBINPUT_TABLET_TOOL_TIP_UP,
+					 tablet->changed_axes,
+					 &axes2);
 		tablet_notify_tip(&device->base,
 				  time,
 				  tool,
@@ -2089,7 +2101,9 @@ tablet_suspend(struct evdev_dispatch *dispatch,
 					now);
 
 	if (!tablet_has_status(tablet, TABLET_TOOL_OUT_OF_PROXIMITY)) {
-		tablet_set_status(tablet, TABLET_TOOL_LEAVING_PROXIMITY);
+		if (!tablet_has_status(tablet, TABLET_TOOL_IN_CONTACT)) {
+			tablet_set_status(tablet, TABLET_TOOL_LEAVING_PROXIMITY);
+		}
 		tablet_flush(tablet, device, libinput_now(li));
 	}
 }
